@@ -275,7 +275,7 @@ func (d *Dialer) Dial(urlStr string, requestHeader http.Header) (*Conn, *http.Re
 		netDialer := &net.Dialer{Deadline: deadline}
 		netDial = netDialer.Dial
 	}
-
+	// su: net.Dial() for connection
 	netConn, err := netDial("tcp", targetHostPort)
 	if err != nil {
 		return nil, nil, err
