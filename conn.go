@@ -226,7 +226,7 @@ func isValidReceivedCloseCode(code int) bool {
 
 // The Conn type represents a WebSocket connection.
 type Conn struct {
-	conn        net.Conn
+	conn        net.Conn // su: tcp connection
 	isServer    bool
 	subprotocol string
 
@@ -265,70 +265,26 @@ type Conn struct {
 }
 
 func newConn(conn net.Conn, isServer bool, readBufferSize, writeBufferSize int) *Conn {
-	return newConnBRW(conn, isServer, readBufferSize, writeBufferSize, nil)
-}
-
-type writeHook struct {
-	p []byte
-}
-
-func (wh *writeHook) Write(p []byte) (int, error) {
-	wh.p = p
-	return len(p), nil
-}
-
-func newConnBRW(conn net.Conn, isServer bool, readBufferSize, writeBufferSize int, brw *bufio.ReadWriter) *Conn {
 	mu := make(chan bool, 1)
 	mu <- true
 
-	var br *bufio.Reader
-	if readBufferSize == 0 && brw != nil && brw.Reader != nil {
-		// Reuse the supplied bufio.Reader if the buffer has a useful size.
-		// This code assumes that peek on a reader returns
-		// bufio.Reader.buf[:0].
-		brw.Reader.Reset(conn)
-		if p, err := brw.Reader.Peek(0); err == nil && cap(p) >= 256 {
-			br = brw.Reader
-		}
+	if readBufferSize == 0 {
+		readBufferSize = defaultReadBufferSize
 	}
-	if br == nil {
-		if readBufferSize == 0 {
-			readBufferSize = defaultReadBufferSize
-		}
-		if readBufferSize < maxControlFramePayloadSize {
-			readBufferSize = maxControlFramePayloadSize
-		}
-		br = bufio.NewReaderSize(conn, readBufferSize)
+	if readBufferSize < maxControlFramePayloadSize {
+		readBufferSize = maxControlFramePayloadSize
 	}
-
-	var writeBuf []byte
-	if writeBufferSize == 0 && brw != nil && brw.Writer != nil {
-		// Use the bufio.Writer's buffer if the buffer has a useful size. This
-		// code assumes that bufio.Writer.buf[:1] is passed to the
-		// bufio.Writer's underlying writer.
-		var wh writeHook
-		brw.Writer.Reset(&wh)
-		brw.Writer.WriteByte(0)
-		brw.Flush()
-		if cap(wh.p) >= maxFrameHeaderSize+256 {
-			writeBuf = wh.p[:cap(wh.p)]
-		}
-	}
-
-	if writeBuf == nil {
-		if writeBufferSize == 0 {
-			writeBufferSize = defaultWriteBufferSize
-		}
-		writeBuf = make([]byte, writeBufferSize+maxFrameHeaderSize)
+	if writeBufferSize == 0 {
+		writeBufferSize = defaultWriteBufferSize
 	}
 
 	c := &Conn{
 		isServer:               isServer,
-		br:                     br,
+		br:                     bufio.NewReaderSize(conn, readBufferSize),
 		conn:                   conn,
 		mu:                     mu,
 		readFinal:              true,
-		writeBuf:               writeBuf,
+		writeBuf:               make([]byte, writeBufferSize+maxFrameHeaderSize),
 		enableWriteCompression: true,
 		compressionLevel:       defaultCompressionLevel,
 	}
@@ -479,9 +435,9 @@ func (c *Conn) prepWrite(messageType int) error {
 	return err
 }
 
-// NextWriter returns a writer for the next message to send. The writer's Close
-// method flushes the complete message to the network.
-//
+// NextWriter returns a writer for the next message to send.
+// *** The writer's Close method flushes the complete message to the network. ***
+
 // There can be at most one open writer on a connection. NextWriter closes the
 // previous writer if the application has not already done so.
 func (c *Conn) NextWriter(messageType int) (io.WriteCloser, error) {
@@ -508,7 +464,7 @@ type messageWriter struct {
 	compress  bool // whether next call to flushFrame should set RSV1
 	pos       int  // end of data in writeBuf.
 	frameType int  // type of the current frame.
-	err       error
+	err       error // su: continuous error checking is done on this
 }
 
 func (w *messageWriter) fatal(err error) error {
@@ -522,7 +478,7 @@ func (w *messageWriter) fatal(err error) error {
 // flushFrame writes buffered data and extra as a frame to the network. The
 // final argument indicates that this is the last frame in the message.
 func (w *messageWriter) flushFrame(final bool, extra []byte) error {
-	c := w.c
+	c := w.c //su: *Conn
 	length := w.pos - maxFrameHeaderSize + len(extra)
 
 	// Check for invalid control frames.
@@ -586,7 +542,7 @@ func (w *messageWriter) flushFrame(final bool, extra []byte) error {
 	}
 	c.isWriting = true
 
-	err := c.write(w.frameType, c.writeDeadline, c.writeBuf[framePos:w.pos], extra)
+	err := c.write(w.frameType, c.writeDeadline, c.writeBuf[framePos:w.pos], extra) // su: *** locked via mutex
 
 	if !c.isWriting {
 		panic("concurrent write to websocket connection")
@@ -717,7 +673,7 @@ func (c *Conn) WritePreparedMessage(pm *PreparedMessage) error {
 		panic("concurrent write to websocket connection")
 	}
 	c.isWriting = true
-	err = c.write(frameType, c.writeDeadline, frameData, nil)
+	err = c.write(frameType, c.writeDeadline, frameData, nil) // su: ***
 	if !c.isWriting {
 		panic("concurrent write to websocket connection")
 	}
@@ -940,7 +896,7 @@ func (c *Conn) NextReader() (messageType int, r io.Reader, err error) {
 			c.readErr = hideTempErr(err)
 			break
 		}
-		if frameType == TextMessage || frameType == BinaryMessage {
+		if frameType == TextMessage || frameType == BinaryMessage { // su: ***
 			c.messageReader = &messageReader{c}
 			c.reader = c.messageReader
 			if c.readDecompress {
