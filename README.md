@@ -22,6 +22,7 @@ package API is stable.
 
 ### Installation
 
+
     go get github.com/gorilla/websocket
 
 ### Protocol Compliance

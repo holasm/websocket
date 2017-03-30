@@ -7,6 +7,7 @@ package websocket
 import (
 	"encoding/json"
 	"io"
+	"fmt"
 )
 
 // WriteJSON is deprecated, use c.WriteJSON instead.
@@ -19,7 +20,7 @@ func WriteJSON(c *Conn, v interface{}) error {
 // See the documentation for encoding/json Marshal for details about the
 // conversion of Go values to JSON.
 func (c *Conn) WriteJSON(v interface{}) error {
-	w, err := c.NextWriter(TextMessage)
+	w, err := c.NextWriter(TextMessage) // su:
 	if err != nil {
 		return err
 	}

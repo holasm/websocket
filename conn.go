@@ -957,7 +957,7 @@ func (r *messageReader) Read(b []byte) (int, error) {
 		}
 	}
 
-	err := c.readErr
+	err := c.readErr // su: must have non nil value
 	if err == io.EOF && c.messageReader == r {
 		err = errUnexpectedEOF
 	}

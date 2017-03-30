@@ -26,9 +26,9 @@ for (var i = gofile.length - 1; i >= 0; i--) {
   var cou = 0;
   // console.log(lines)
   for (var j = lines.length - 1; j >= 0; j--) {
-    if(lines[j].search('//') == -1) {
+//    if(lines[j].search('//') == -1) {
       cou++
-    }
+//    }
   }
   count += cou
 }
@@ -36,14 +36,14 @@ for (var i = gofile.length - 1; i >= 0; i--) {
 console.log(count)
 count = 0;
 
-var data = fs.readFileSync('/home/subhasis/DEV/git/websocket/conn.go', 'utf-8');
-var lines = data.split('\n');
-var cou = 0;
-// console.log(lines)
-for (var j = lines.length - 1; j >= 0; j--) {
-  if(lines[j].search('//') == -1) {
-    cou++
-  }
-}
-count += cou
-console.log(count)
+//var data = fs.readFileSync('/home/subhasis/DEV/git/websocket/conn.go', 'utf-8');
+//var lines = data.split('\n');
+//var cou = 0;
+//// console.log(lines)
+//for (var j = lines.length - 1; j >= 0; j--) {
+//  if(lines[j].search('//') == -1) {
+//    cou++
+//  }
+//}
+//count += cou
+//console.log(count)

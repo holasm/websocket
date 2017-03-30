@@ -15,6 +15,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/gorilla/websocket"
+	//"fmt"
 )
 
 var upgrader = websocket.Upgrader{
@@ -34,8 +35,11 @@ func echoCopy(w http.ResponseWriter, r *http.Request, writerOnly bool) {
 		return
 	}
 	defer conn.Close()
+	// su: for each message this loop spins
 	for {
-		mt, r, err := conn.NextReader()
+		// su: for every new message a new messageReader is created
+		// su: they io.Copy func below blocks in advanceFrame > read > Peek > fill > copy
+		mt, r, err := conn.NextReader() // su: r == io.Reader
 		if err != nil {
 			if err != io.EOF {
 				log.Println("NextReader:", err)
@@ -45,7 +49,8 @@ func echoCopy(w http.ResponseWriter, r *http.Request, writerOnly bool) {
 		if mt == websocket.TextMessage {
 			r = &validator{r: r}
 		}
-		w, err := conn.NextWriter(mt)
+
+		w, err := conn.NextWriter(mt) // io.WriteCloser
 		if err != nil {
 			log.Println("NextWriter:", err)
 			return
@@ -110,7 +115,7 @@ func echoReadAll(w http.ResponseWriter, r *http.Request, writeMessage, writePrep
 		}
 		if writeMessage {
 			if !writePrepared {
-				err = conn.WriteMessage(mt, b)
+				err = conn.WriteMessage(mt, b) // su: b is a string
 				if err != nil {
 					log.Println("WriteMessage:", err)
 				}

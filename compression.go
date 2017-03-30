@@ -68,7 +68,8 @@ func (w *truncWriter) Write(p []byte) (int, error) {
 	// fill buffer first for simplicity.
 	if w.n < len(w.p) {
 		n = copy(w.p[w.n:], p)
-		p = p[n:]
+		bytes := p[n:]
+		p = bytes
 		w.n += n
 		if len(p) == 0 {
 			return n, nil
